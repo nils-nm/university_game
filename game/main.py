@@ -1,5 +1,6 @@
 import arcade as ar
 import arcade.gui
+import math
 
 #const
 sc_w = 1000
@@ -15,6 +16,12 @@ ammo_scal = 0.3
 player_sp = 5
 
 
+class QuitButton(ar.gui.UIFlatButton):
+
+    def on_click(self, event: ar.gui.UIOnClickEvent):
+        ar.exit
+
+
 class MainMenuView(ar.View):
 
     def on_show_view(self):
@@ -26,25 +33,44 @@ class MainMenuView(ar.View):
         self.uimanager = ar.gui.UIManager()
         self.uimanager.enable()
 
-        #create start button
+        #create box for menu buttons
+        self.v_box = ar.gui.UIBoxLayout()
+
+        #create start and quit and settings button
         start_button = ar.gui.UIFlatButton(text='start game', width=200)
+        self.v_box.add(start_button.with_space_around(bottom=20))
+
+        settings_button = ar.gui.UIFlatButton(text='settings', width=200)
+        self.v_box.add(settings_button.with_space_around(bottom=20))
+
+        quit_button = ar.gui.UIFlatButton(text='quit', width=200)
+        self.v_box.add(quit_button)
 
         #func for button
-        start_button.on_click = self.on_buttonclick
+        start_button.on_click = self.button_start
+        settings_button.on_click = self.button_settings
+        quit_button.on_click = self.button_quit
 
         #adding button in  the our manager
         self.uimanager.add(
                 ar.gui.UIAnchorWidget(
                     anchor_x='center_x',
                     anchor_y='center_y',
-                    child=start_button)
+                    child=self.v_box)
                 )
-    def on_buttonclick(self, event):
 
-        #check mouse pressed
+
+    def button_start(self, e):
         game_view = GameView()
         game_view.setup()
         self.window.show_view(game_view)
+
+    def button_settings(self, e):
+        print('settings')
+
+    def button_quit(self, e):
+        ar.exit()
+
 
     def on_draw(self):
 
@@ -53,8 +79,8 @@ class MainMenuView(ar.View):
 
         ar.start_render()
 
-        #ar.draw_text('Main menu', self.window.width/2, self.window.height/2,
-        #             ar.color.WHITE,font_size=50, anchor_x='center')
+        ar.draw_text('Main menu', self.window.width/2, self.window.height/2+150,
+                     ar.color.WHITE,font_size=50, anchor_x='center')
 
         #ar.draw_text('click for avance', self.window.width/2, self.window.height/2-75,
         #             ar.color.WHITE, font_size=50, anchor_x='center')
@@ -84,6 +110,11 @@ class GameView(ar.View):
 
         #separete variable that holds the playre sprite
         self.player_sprite = None
+        self.angle = 0
+
+        #our cords mouse
+        self.mouse_x = 0
+        self.mouse_y = 0
 
         # A Camera that can be used for scrolling the screen
         self.camera = None
@@ -118,9 +149,13 @@ class GameView(ar.View):
         self.scene.add_sprite_list('Player')
         self.scene.add_sprite_list('Walls', use_spatial_hash=True)
 
+        #angle
+        self.angle = 0
+
         #setup the player
         image_sourse = 'images/test_player.png'
-        self.player_sprite = ar.Sprite(image_sourse, charecter_scal)
+        self.player_sprite = ar.Sprite(image_sourse, charecter_scal,
+                                       angle=self.angle, hit_box_algorithm='Simple')
         self.player_sprite.center_x = 64
         self.player_sprite.center_y = 64
         self.scene.add_sprite('Player', self.player_sprite)
@@ -166,6 +201,7 @@ class GameView(ar.View):
                 18)
 
 
+
     def update_player_speed(self):
 
         #calculate player speed
@@ -174,12 +210,16 @@ class GameView(ar.View):
 
         if self.w_p and not self.s_p:
             self.player_sprite.change_y = player_sp
+            self.mouse_y += player_sp
         elif self.s_p and not self.w_p:
             self.player_sprite.change_y = -player_sp
+            self.mouse_y -= player_sp
         if self.a_p and not self.d_p:
             self.player_sprite.change_x = -player_sp
+            self.mouse_x -= player_sp
         elif self.d_p and not self.a_p:
             self.player_sprite.change_x = player_sp
+            self.mouse_x += player_sp
 
     def on_key_press(self, key, modifiers):
 
@@ -226,6 +266,17 @@ class GameView(ar.View):
         #move camera to player with smoothly
         self.camera.move_to(player_centered, 0.1)
 
+    def on_mouse_motion(self, x, y, button, modifiers):
+
+        self.mouse_x = x
+        self.mouse_y = y
+
+    def chenge_angle_player(self):
+
+        self.angle = round(-math.degrees(math.atan2((
+            self.player_sprite.center_x-self.mouse_x),
+            (self.player_sprite.center_y-self.mouse_y))))
+        self.player_sprite.angle = self.angle+90
 
     def on_update(self, delta_time):
 
@@ -250,6 +301,9 @@ class GameView(ar.View):
 
         #Position the camera
         self.center_camera_to_player()
+
+        #angle of player
+        self.chenge_angle_player()
 
 def main():
     window = ar.Window(sc_w, sc_h, sc_title)
