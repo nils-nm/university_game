@@ -8,18 +8,81 @@ sc_h = 650
 sc_title = 'test'
 
 #const for scale
-charecter_scal = 1
+charecter_scal = 2
 tile_scal = 0.5
 ammo_scal = 0.3
+
+fps = 7
+
+#consts used for track if the player is facing
+#DOWN_FACING = 0
+#LEFT_DOWN_FACING = 1
+LEFT_FACING = 1
+#LEFT_UP_FACING = 3
+#UP_FACING = 4
+#RIGHT_UP_FACING = 5
+RIGHT_FACING = 0
+#RIGHT_DOWN_FACING = 7
 
 #movment speed per frame
 player_sp = 5
 
 
-class QuitButton(ar.gui.UIFlatButton):
+def load_texture_pair(filename):
+    return [
+            ar.load_texture(filename),
+            ar.load_texture(filename, flipped_horizontally=True)
+            ]
 
-    def on_click(self, event: ar.gui.UIOnClickEvent):
-        ar.exit
+
+class PlayerCharecter(ar.Sprite):
+
+    def __init__(self):
+
+        #set up parent class
+        super().__init__()
+
+        #defoult face direction
+        self.charecter_face_direction = RIGHT_FACING
+
+        #used for flipping between image sequens
+        self.cur_texture = 0
+        self.scale = charecter_scal
+
+        #main path for images
+        main_path = '/home/nils/university_game/ref/'
+
+        #load textures
+        self.idle_texture_pair = load_texture_pair(f'{main_path}charecter/idle.png') # idle
+
+        self.walk_texture = []
+        for i in range(8): # walk left/right
+            texture = load_texture_pair(f'{main_path}walk/right{i}.png')
+            self.walk_texture.append(texture)
+
+        #set the initial texture
+        self.texture = self.idle_texture_pair[0]
+
+        #hit box
+        self.hit_box = self.texture.hit_box_points
+
+    def update_animations(self, delta_time: float = 1/60):
+
+        if self.change_x < 0 and self.charecter_face_direction == RIGHT_FACING:
+            self.charecter_face_direction = LEFT_FACING
+        elif self.change_x > 0 and self.charecter_face_direction == LEFT_FACING:
+            self.charecter_face_direction = RIGHT_FACING
+
+        #idle animation
+        if self.change_x == 0:
+            self.texture = self.idle_texture_pair[self.charecter_face_direction]
+            return
+
+        #walk animation
+        self.cur_texture += 1
+        if self.cur_texture > 7*fps:
+            self.cur_texture = 0
+        self.texture = self.walk_texture[self.cur_texture//fps][self.charecter_face_direction]
 
 
 class MainMenuView(ar.View):
@@ -154,8 +217,7 @@ class GameView(ar.View):
 
         #setup the player
         image_sourse = 'images/test_player.png'
-        self.player_sprite = ar.Sprite(image_sourse, charecter_scal,
-                                       angle=self.angle, hit_box_algorithm='Simple')
+        self.player_sprite = PlayerCharecter()
         self.player_sprite.center_x = 64
         self.player_sprite.center_y = 64
         self.scene.add_sprite('Player', self.player_sprite)
@@ -302,8 +364,12 @@ class GameView(ar.View):
         #Position the camera
         self.center_camera_to_player()
 
+        #update animations
+        self.scene.update_animation(delta_time, ['Player'])
+        self.player_sprite.update_animations(delta_time)
+
         #angle of player
-        self.chenge_angle_player()
+        #self.chenge_angle_player()
 
 def main():
     window = ar.Window(sc_w, sc_h, sc_title)
