@@ -8,8 +8,9 @@ sc_h = 650
 sc_title = 'test'
 
 #const for scale
-charecter_scal = 2
+charecter_scal = 1.5
 tile_scal = 0.5
+tilemap_scal = 1
 ammo_scal = 0.3
 
 fps = 7
@@ -50,7 +51,7 @@ class PlayerCharecter(ar.Sprite):
         self.scale = charecter_scal
 
         #main path for images
-        main_path = '/home/nils/university_game/ref/'
+        main_path = 'ref/'
 
         #load textures
         self.idle_texture_pair = load_texture_pair(f'{main_path}charecter/idle.png') # idle
@@ -170,6 +171,8 @@ class GameView(ar.View):
         self.s_p = False
         self.d_p = False
 
+        #our tilemap object
+        self.tile_map = None
 
         #separete variable that holds the playre sprite
         self.player_sprite = None
@@ -205,12 +208,28 @@ class GameView(ar.View):
         #keep track score
         self.bullets = 10
 
+        #name of map to load
+        map_name = 'untitled.json'
+
+        #layers
+        layer_options = {
+                'Background': {
+                    'use_spatial_hash': True,
+                    },
+                'Walls': {
+                    'use_spatial_hash': True,
+                    },
+                }
+
+        #read in the tiled map
+        self.tile_map = ar.load_tilemap(map_name, tilemap_scal, layer_options)
+
         #init scene
-        self.scene = ar.Scene()
+        self.scene = ar.Scene.from_tilemap(self.tile_map)
 
         #create sprite list
         self.scene.add_sprite_list('Player')
-        self.scene.add_sprite_list('Walls', use_spatial_hash=True)
+        #self.scene.add_sprite_list('Walls', use_spatial_hash=True)
 
         #angle
         self.angle = 0
@@ -224,10 +243,10 @@ class GameView(ar.View):
 
         #put some box
         cord_list = [[512, 96], [256, 96], [768, 96]]
-        for cord in cord_list:
-            wall = ar.Sprite('images/boxCrate.png', tile_scal)
-            wall.position = cord
-            self.scene.add_sprite('Walls', wall)
+        #for cord in cord_list:
+            #wall = ar.Sprite('images/boxCrate.png', tile_scal)
+            #wall.position = cord
+            #self.scene.add_sprite('Walls', wall)
 
 
         # use loop for create some ammo
@@ -239,7 +258,7 @@ class GameView(ar.View):
 
         #create physics engine
         self.physics_engine = ar.PhysicsEngineSimple(
-                self.player_sprite, self.scene.get_sprite_list('Walls')
+                self.player_sprite, walls=self.scene['Walls']
                 )
 
 
