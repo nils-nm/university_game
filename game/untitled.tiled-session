@@ -3,22 +3,34 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "untitled.json",
     "expandedProjectPaths": [
+        "."
     ],
     "fileStates": {
         "cave.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 1
+        },
+        "untitled.json": {
+            "scale": 1.1202083333333333,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 431.1697972847313,
+                "y": 745.3970615584899
+            }
         }
     },
     "last.imagePath": "/home/nils/university_game/game/ref",
     "map.lastUsedFormat": "json",
     "openFiles": [
+        "untitled.json",
+        "cave.tsx"
     ],
     "project": "untitled.tiled-project",
     "recentFiles": [
-        "cave.tsx"
+        "cave.tsx",
+        "untitled.json"
     ],
     "tileset.lastUsedFormat": "tsx"
 }

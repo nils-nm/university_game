@@ -1,6 +1,7 @@
 import arcade as ar
 import arcade.gui
 import math
+import mouse
 
 #const
 sc_w = 1000
@@ -27,6 +28,9 @@ RIGHT_FACING = 0
 
 #movment speed per frame
 player_sp = 5
+
+#angle mouse
+angle = 0
 
 
 def load_texture_pair(filename):
@@ -69,13 +73,23 @@ class PlayerCharecter(ar.Sprite):
 
     def update_animations(self, delta_time: float = 1/60):
 
+        #change face direction if press wasd
+
         if self.change_x < 0 and self.charecter_face_direction == RIGHT_FACING:
             self.charecter_face_direction = LEFT_FACING
         elif self.change_x > 0 and self.charecter_face_direction == LEFT_FACING:
             self.charecter_face_direction = RIGHT_FACING
 
+        """
+        #change face direction if mose motion
+        if -15 < angle < 15:
+            self.charecter_face_direction = LEFT_FACING
+        elif -165 > angle > -180 or 180 > angle > 165:
+            self.charecter_face_direction = RIGHT_FACING
+        """
+
         #idle animation
-        if self.change_x == 0:
+        if self.change_x == 0 and self.change_y == 0:
             self.texture = self.idle_texture_pair[self.charecter_face_direction]
             return
 
@@ -171,11 +185,20 @@ class GameView(ar.View):
         self.s_p = False
         self.d_p = False
 
+        #offset
+        self.offset_x = None
+        self.offset_y = None
+
+        #cords mouse
+        self.mouse_x = 0
+        self.mouse_y = 0
+
         #our tilemap object
         self.tile_map = None
 
         #separete variable that holds the playre sprite
         self.player_sprite = None
+        self.test_sprite = None # =====TEST=====
         self.angle = 0
 
         #our cords mouse
@@ -208,6 +231,10 @@ class GameView(ar.View):
         #keep track score
         self.bullets = 10
 
+        #setup offset
+        self.offset_x = 0
+        self.offset_y = 0
+
         #name of map to load
         map_name = 'untitled.json'
 
@@ -235,7 +262,12 @@ class GameView(ar.View):
         self.angle = 0
 
         #setup the player
-        image_sourse = 'images/test_player.png'
+        image_sourse = 'images/test_player.png' # =====TEST====
+        self.test_sprite = ar.Sprite(image_sourse, charecter_scal) # =====TEST====
+        self.test_sprite.center_x = 64 # ===TEST===
+        self.test_sprite.center_y = 64 # ===TEST===
+        self.scene.add_sprite('Player', self.test_sprite) # ===TEST===
+
         self.player_sprite = PlayerCharecter()
         self.player_sprite.center_x = 64
         self.player_sprite.center_y = 64
@@ -281,6 +313,17 @@ class GameView(ar.View):
                 ar.color.WHITE,
                 18)
 
+        ar.draw_line(0,
+                     0,
+                     self.test_sprite.center_x-self.offset_x,
+                     self.test_sprite.center_y-self.offset_y,
+                     ar.color.BLUE, 2)
+
+        ar.draw_line(self.test_sprite.center_x-self.offset_x,
+                     self.test_sprite.center_y-self.offset_y,
+                     self.mouse_x,
+                     self.mouse_y,
+                     ar.color.GREEN, 2)
 
 
     def update_player_speed(self):
@@ -288,19 +331,25 @@ class GameView(ar.View):
         #calculate player speed
         self.player_sprite.change_x = 0
         self.player_sprite.change_y = 0
+        #self.test_sprite.change_x = 0 # ===TEST===
+        #self.test_sprite.change_y = 0 # ===TEST===
 
         if self.w_p and not self.s_p:
             self.player_sprite.change_y = player_sp
-            self.mouse_y += player_sp
+            #self.test_sprite.change_y = player_sp # ===TEST===
+            #self.mouse_y += player_sp
         elif self.s_p and not self.w_p:
             self.player_sprite.change_y = -player_sp
-            self.mouse_y -= player_sp
+            #self.test_sprite.change_y = -player_sp # ===TEST===
+            #self.mouse_y -= player_sp
         if self.a_p and not self.d_p:
             self.player_sprite.change_x = -player_sp
-            self.mouse_x -= player_sp
+            #self.test_sprite.change_x = -player_sp # ===TEST===
+            #self.mouse_x -= player_sp
         elif self.d_p and not self.a_p:
             self.player_sprite.change_x = player_sp
-            self.mouse_x += player_sp
+            #self.test_sprite.change_x = player_sp # ===TEST===
+            #self.mouse_x += player_sp
 
     def on_key_press(self, key, modifiers):
 
@@ -337,31 +386,47 @@ class GameView(ar.View):
         screen_center_x = self.player_sprite.center_x - (self.camera.viewport_width / 2)
         screen_center_y = self.player_sprite.center_y - (self.camera.viewport_height / 2)
 
+
+        print(self.mouse_x, self.mouse_y, mouse.get_position())
+
         #Don't let camera travel past 0
-        if screen_center_x < 0:
-            screen_center_x = 0
-        if screen_center_y < 0:
-            screen_center_y = 0
+        #if screen_center_x < 0:
+        #    screen_center_x = 0
+        #if screen_center_y < 0:
+        #    screen_center_y = 0
         player_centered = screen_center_x, screen_center_y
+        offset_x, offset_y = screen_center_x, screen_center_y
+        print(offset_x, offset_y)
 
         #move camera to player with smoothly
         self.camera.move_to(player_centered, 0.1)
 
-    def on_mouse_motion(self, x, y, button, modifiers):
+
+    def change_angle_player(self):
+
+        global angle
+        angle = round(math.degrees(math.atan2((
+            self.test_sprite.center_y-self.mouse_y-self.offset_y),
+            (self.test_sprite.center_x-self.mouse_x-self.offset_x))))
+        self.test_sprite.angle = angle
+
+        print(angle)
+
+    def on_mouse_motion(self, x, y, a, b):
 
         self.mouse_x = x
         self.mouse_y = y
 
-    def chenge_angle_player(self):
-
-        self.angle = round(-math.degrees(math.atan2((
-            self.player_sprite.center_x-self.mouse_x),
-            (self.player_sprite.center_y-self.mouse_y))))
-        self.player_sprite.angle = self.angle+90
-
     def on_update(self, delta_time):
 
         #game logic
+        #print(mouse.get_position())
+        #self.mouse_x, self.mouse_y = mouse.get_position()
+        #self.mouse_x += self.offset_x
+        #self.mouse_y += self.offset_y
+        print(self.test_sprite.center_x, self.test_sprite.center_y)
+
+
 
         # Activate our Camera
         self.camera.use()
@@ -382,13 +447,15 @@ class GameView(ar.View):
 
         #Position the camera
         self.center_camera_to_player()
+        self.test_sprite.center_x = self.player_sprite.center_x
+        self.test_sprite.center_y = self.player_sprite.center_y
 
         #update animations
         self.scene.update_animation(delta_time, ['Player'])
         self.player_sprite.update_animations(delta_time)
 
         #angle of player
-        #self.chenge_angle_player()
+        self.change_angle_player()
 
 def main():
     window = ar.Window(sc_w, sc_h, sc_title)
