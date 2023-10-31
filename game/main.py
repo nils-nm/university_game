@@ -75,18 +75,22 @@ class PlayerCharecter(ar.Sprite):
 
         #change face direction if press wasd
 
+        """
         if self.change_x < 0 and self.charecter_face_direction == RIGHT_FACING:
             self.charecter_face_direction = LEFT_FACING
         elif self.change_x > 0 and self.charecter_face_direction == LEFT_FACING:
             self.charecter_face_direction = RIGHT_FACING
 
         """
+
         #change face direction if mose motion
+
+
         if -15 < angle < 15:
             self.charecter_face_direction = LEFT_FACING
         elif -165 > angle > -180 or 180 > angle > 165:
             self.charecter_face_direction = RIGHT_FACING
-        """
+
 
         #idle animation
         if self.change_x == 0 and self.change_y == 0:
@@ -312,6 +316,13 @@ class GameView(ar.View):
                 10, 10,
                 ar.color.WHITE,
                 18)
+        #draw our angle on the screen
+        angle_text = f'angle: {angle}'
+        ar.draw_text(
+                angle_text,
+                210, 10,
+                ar.color.WHITE,
+                18)
 
         ar.draw_line(0,
                      0,
@@ -406,11 +417,21 @@ class GameView(ar.View):
 
         global angle
         angle = round(math.degrees(math.atan2((
-            self.test_sprite.center_y-self.mouse_y-self.offset_y),
-            (self.test_sprite.center_x-self.mouse_x-self.offset_x))))
+            self.camera.viewport_height/2-self.mouse_y),
+            (self.camera.viewport_width/2-self.mouse_x))))
+
+        #if self.mouse_x < (self.camera.viewport_width / 2):
+        #    if self.mouse_y < (self.camera.viewport_height / 2):
+        #        angle = 180 + angle
+        #    else:
+        #        angle = 180 - angle
+        #else:
+        #    if self.mouse_y < (self.camera.viewport_height / 2):
+        #        angle = -angle
+
         self.test_sprite.angle = angle
 
-        print(angle)
+        #print(angle)
 
     def on_mouse_motion(self, x, y, a, b):
 
