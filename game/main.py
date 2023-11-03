@@ -2,10 +2,12 @@ import arcade as ar
 import arcade.gui
 import math
 import mouse
+from arcade.experimental import Shadertoy
+from pathlib import Path
 
 #const
-sc_w = 1000
-sc_h = 650
+sc_w = 800
+sc_h = 600
 sc_title = 'test'
 
 #const for scale
@@ -27,7 +29,10 @@ RIGHT_FACING = 0
 #RIGHT_DOWN_FACING = 7
 
 #movment speed per frame
-player_sp = 5
+player_sp = 3
+
+PLAYING_FIELD_WIDTH = 1600
+PLAYING_FIELD_HEIGHT = 1600
 
 #angle mouse
 angle = 0
@@ -60,10 +65,26 @@ class PlayerCharecter(ar.Sprite):
         #load textures
         self.idle_texture_pair = load_texture_pair(f'{main_path}charecter/idle.png') # idle
 
-        self.walk_texture = []
+        self.walk_texture = {'up': [],
+                            'right-up': [],
+                            'right': [],
+                            'right-down': [],
+                            'down': []}
+        for i in range(8): # walk left/right
+            texture = load_texture_pair(f'{main_path}walk/up{i}.png')
+            self.walk_texture['up'].append(texture)
+        for i in range(8): # walk left/right
+            texture = load_texture_pair(f'{main_path}walk/right-up{i}.png')
+            self.walk_texture['right-up'].append(texture)
         for i in range(8): # walk left/right
             texture = load_texture_pair(f'{main_path}walk/right{i}.png')
-            self.walk_texture.append(texture)
+            self.walk_texture['right'].append(texture)
+        for i in range(8): # walk left/right
+            texture = load_texture_pair(f'{main_path}walk/right-down{i}.png')
+            self.walk_texture['right-down'].append(texture)
+        for i in range(8): # walk left/right
+            texture = load_texture_pair(f'{main_path}walk/down{i}.png')
+            self.walk_texture['down'].append(texture)
 
         #set the initial texture
         self.texture = self.idle_texture_pair[0]
@@ -87,21 +108,34 @@ class PlayerCharecter(ar.Sprite):
 
 
         if -15 < angle < 15:
-            self.charecter_face_direction = LEFT_FACING
+            self.charecter_face_direction = ['right', LEFT_FACING]
         elif -165 > angle > -180 or 180 > angle > 165:
-            self.charecter_face_direction = RIGHT_FACING
-
+            self.charecter_face_direction = ['right', RIGHT_FACING]
+        elif -15 > angle > -75:
+            self.charecter_face_direction = ['right-up', LEFT_FACING]
+        elif -75 > angle > -105:
+            self.charecter_face_direction = ['up', RIGHT_FACING]
+        elif -105 > angle > -165:
+            self.charecter_face_direction = ['right-up', RIGHT_FACING]
+        elif -165 > angle > -180 or 180 > angle > 165:
+            self.charecter_face_direction = ['right', RIGHT_FACING]
+        elif 165 > angle > 105:
+            self.charecter_face_direction = ['right-down', RIGHT_FACING]
+        elif 105 > angle > 75:
+            self.charecter_face_direction = ['down', RIGHT_FACING]
+        elif 75 > angle > 15:
+            self.charecter_face_direction = ['right-down', LEFT_FACING]
 
         #idle animation
         if self.change_x == 0 and self.change_y == 0:
-            self.texture = self.idle_texture_pair[self.charecter_face_direction]
+            self.texture = self.idle_texture_pair[self.charecter_face_direction[1]]
             return
 
         #walk animation
         self.cur_texture += 1
         if self.cur_texture > 7*fps:
             self.cur_texture = 0
-        self.texture = self.walk_texture[self.cur_texture//fps][self.charecter_face_direction]
+        self.texture = self.walk_texture[self.charecter_face_direction[0]][self.cur_texture//fps][self.charecter_face_direction[1]]
 
 
 class MainMenuView(ar.View):
@@ -200,6 +234,12 @@ class GameView(ar.View):
         #our tilemap object
         self.tile_map = None
 
+        #the shadertoy and chanels
+        self.shadertoy = None
+        self.channel0 = None
+        self.channel1 = None
+        self.load_shader()
+
         #separete variable that holds the playre sprite
         self.player_sprite = None
         self.test_sprite = None # =====TEST=====
@@ -221,6 +261,25 @@ class GameView(ar.View):
         #set bg color
         ar.set_background_color(ar.color.ARSENIC)
 
+
+    def load_shader(self):
+
+        shader_file_path = Path('step_01.glsl')
+
+        #size of window
+        window_size = self.window.get_size()
+
+        #create the shader toy
+        self.shadertoy = Shadertoy.create_from_file(window_size, shader_file_path)
+
+        #create channels 0 and 1, make buffer with 4 cannels (rgba)
+        self.channel0 = self.shadertoy.ctx.framebuffer(color_attachments=[self.shadertoy.ctx.texture(window_size, components=4)])
+
+        self.channel1 = self.shadertoy.ctx.framebuffer(color_attachments=[self.shadertoy.ctx.texture(window_size, components=4)])
+
+        #assign the frame buffers to the cannels
+        self.shadertoy.channel_0 = self.channel0.color_attachments[0]
+        self.shadertoy.channel_1 = self.channel1.color_attachments[0]
 
     def setup(self):
 
@@ -273,8 +332,8 @@ class GameView(ar.View):
         self.scene.add_sprite('Player', self.test_sprite) # ===TEST===
 
         self.player_sprite = PlayerCharecter()
-        self.player_sprite.center_x = 64
-        self.player_sprite.center_y = 64
+        self.player_sprite.center_x = 400
+        self.player_sprite.center_y = 400
         self.scene.add_sprite('Player', self.player_sprite)
 
         #put some box
@@ -300,13 +359,48 @@ class GameView(ar.View):
 
     def on_draw(self):
 
-        #render the sc
-        self.clear()
+        self.camera.use()
+
+        #select the channel 0 frame buffer to draw on
+        self.channel0.use()
+        self.channel0.clear()
 
         #draw our scene
         self.scene.draw()
 
-        #activate gui camera
+        #select the window to draw on
+        self.window.use()
+
+        '''
+        ar.draw_line(0,
+                     0,
+                     self.test_sprite.center_x-self.offset_x,
+                     self.test_sprite.center_y-self.offset_y,
+                     ar.color.BLUE, 2)
+
+        ar.draw_line(self.test_sprite.center_x-self.offset_x,
+                     self.test_sprite.center_y-self.offset_y,
+                     self.mouse_x,
+                     self.mouse_y,
+                     ar.color.GREEN, 2)
+        '''
+
+        #render the sc
+        self.clear()
+
+        #calculate the light position
+        p = (self.player_sprite.position[0] - self.camera.position[0],
+             self.player_sprite.position[1] - self.camera.position[1])
+
+        #set the uniform data
+        self.shadertoy.program['lightPosition'] = p
+        self.shadertoy.program['lightSize'] = 300
+
+        #run the shader and render to the window
+        self.shadertoy.render()
+
+        self.scene.draw()
+
         self.gui_camera.use()
 
         #draw our ammo on the screen
@@ -323,19 +417,6 @@ class GameView(ar.View):
                 210, 10,
                 ar.color.WHITE,
                 18)
-
-        ar.draw_line(0,
-                     0,
-                     self.test_sprite.center_x-self.offset_x,
-                     self.test_sprite.center_y-self.offset_y,
-                     ar.color.BLUE, 2)
-
-        ar.draw_line(self.test_sprite.center_x-self.offset_x,
-                     self.test_sprite.center_y-self.offset_y,
-                     self.mouse_x,
-                     self.mouse_y,
-                     ar.color.GREEN, 2)
-
 
     def update_player_speed(self):
 
@@ -398,16 +479,17 @@ class GameView(ar.View):
         screen_center_y = self.player_sprite.center_y - (self.camera.viewport_height / 2)
 
 
-        print(self.mouse_x, self.mouse_y, mouse.get_position())
+        #print(self.mouse_x, self.mouse_y, mouse.get_position())
 
         #Don't let camera travel past 0
-        #if screen_center_x < 0:
-        #    screen_center_x = 0
-        #if screen_center_y < 0:
-        #    screen_center_y = 0
+        if screen_center_x < 0:
+            screen_center_x = 0
+        if screen_center_y < 0:
+            screen_center_y = 0
+
         player_centered = screen_center_x, screen_center_y
         offset_x, offset_y = screen_center_x, screen_center_y
-        print(offset_x, offset_y)
+        #print(offset_x, offset_y)
 
         #move camera to player with smoothly
         self.camera.move_to(player_centered, 0.1)
