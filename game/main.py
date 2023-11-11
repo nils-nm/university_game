@@ -213,6 +213,7 @@ class GameView(ar.View):
 
         #our scene obj
         self.scene = None
+        self.scene_map = None
 
         #our phisics engine
         self.physics_engine = None
@@ -315,7 +316,8 @@ class GameView(ar.View):
         self.tile_map = ar.load_tilemap(map_name, tilemap_scal, layer_options)
 
         #init scene
-        self.scene = ar.Scene.from_tilemap(self.tile_map)
+        self.scene_map = ar.Scene.from_tilemap(self.tile_map)
+        self.scene = ar.Scene()
 
         #create sprite list
         self.scene.add_sprite_list('Player')
@@ -353,7 +355,7 @@ class GameView(ar.View):
 
         #create physics engine
         self.physics_engine = ar.PhysicsEngineSimple(
-                self.player_sprite, walls=self.scene['Walls']
+                self.player_sprite, walls=self.scene_map['Walls']
                 )
 
 
@@ -366,7 +368,7 @@ class GameView(ar.View):
         self.channel0.clear()
 
         #draw our scene
-        self.scene.draw()
+        self.scene_map.draw()
 
         #select the window to draw on
         self.window.use()
@@ -392,14 +394,17 @@ class GameView(ar.View):
         p = (self.player_sprite.position[0] - self.camera.position[0],
              self.player_sprite.position[1] - self.camera.position[1])
 
+        #p = (100, 100)
         #set the uniform data
         self.shadertoy.program['lightPosition'] = p
-        self.shadertoy.program['lightSize'] = 300
+        self.shadertoy.program['lightSize'] = 500
 
+
+        self.scene_map.draw()
+        self.scene.draw()
         #run the shader and render to the window
         self.shadertoy.render()
 
-        self.scene.draw()
 
         self.gui_camera.use()
 

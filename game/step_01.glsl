@@ -12,7 +12,7 @@ float terrain(vec2 samplePoint)
 	float returnValue = 1.0 - sampleStepped;
 
 	//soften the shadow
-	returnValue = mix(0.98, 1.0, returnValue);
+	returnValue = mix(0.99, 1.0, returnValue);
 
 	return returnValue;
 }
@@ -45,6 +45,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 	//we'll alternate our display between black and whatever is in channel 1
 	vec4 blackColor = vec4(0.0, 0.0, 0.0, 1.0);
 
-	//our fragment color will be somewhere between bleck and channel1
+	//our fragment color will be somewhere between black and channel1
 	fragColor = mix(blackColor, texture(iChannel1, normalizedFragCoord), lightAmount);
 }
