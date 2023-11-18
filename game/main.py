@@ -4,6 +4,8 @@ import math
 import mouse
 from arcade.experimental import Shadertoy
 from pathlib import Path
+from typing import Optional
+from arcade.pymunk_physics_engine import PymunkPhysicsEngine
 
 #const
 sc_w = 800
@@ -12,6 +14,7 @@ sc_title = 'test'
 
 #const for scale
 charecter_scal = 1.5
+enemy_scal = 1
 tile_scal = 0.5
 tilemap_scal = 1
 ammo_scal = 0.3
@@ -30,6 +33,8 @@ RIGHT_FACING = 0
 
 #movment speed per frame
 player_sp = 3
+PLAYER_MOVE_FORCE = 4000
+BULLET_MOVE_FORCE = 2500
 
 PLAYING_FIELD_WIDTH = 1600
 PLAYING_FIELD_HEIGHT = 1600
@@ -44,6 +49,28 @@ def load_texture_pair(filename):
             ar.load_texture(filename, flipped_horizontally=True)
             ]
 
+
+class Enemy(ar.Sprite):
+
+    def __init__(self):
+
+        #set up parent class
+        super().__init__()
+
+        #defoult face direction
+        self.enemy_face_direction = RIGHT_FACING
+
+
+        self.scale = enemy_scal
+        self.cur_texture = 0
+
+        #main path for images
+        main_path = 'ref/'
+        self.idle_texture_pair = load_texture_pair(f'{main_path}enemy/idle.png')
+
+        self.texture = self.idle_texture_pair[0]
+
+        self.hit_box = self.texture.hit_box_points
 
 class PlayerCharecter(ar.Sprite):
 
@@ -178,8 +205,9 @@ class MainMenuView(ar.View):
 
     def button_start(self, e):
         game_view = GameView()
-        game_view.setup()
+        self.uimanager.clear()
         self.window.show_view(game_view)
+        game_view.setup()
 
     def button_settings(self, e):
         print('settings')
@@ -216,7 +244,8 @@ class GameView(ar.View):
         self.scene_map = None
 
         #our phisics engine
-        self.physics_engine = None
+        #self.physics_engine = None
+        self.physics_engine: Optional[PymunkPhysicsEngine] = None
 
         #track the current state of key
         self.w_p = False
@@ -244,6 +273,8 @@ class GameView(ar.View):
         #separete variable that holds the playre sprite
         self.player_sprite = None
         self.test_sprite = None # =====TEST=====
+        self.enemy_sprite = None # ===TEST=ENEMY===
+
         self.angle = 0
 
         #our cords mouse
@@ -321,25 +352,35 @@ class GameView(ar.View):
 
         #create sprite list
         self.scene.add_sprite_list('Player')
+        self.scene.add_sprite_list('Enemy')
+        self.scene.add_sprite_list('Light')
+
+        self.bullet_list = ar.SpriteList()
         #self.scene.add_sprite_list('Walls', use_spatial_hash=True)
 
         #angle
         self.angle = 0
 
         #setup the player
-        image_sourse = 'images/test_player.png' # =====TEST====
+        image_sourse = 'images/test_player_1.png' # =====TEST====
         self.test_sprite = ar.Sprite(image_sourse, charecter_scal) # =====TEST====
         self.test_sprite.center_x = 64 # ===TEST===
         self.test_sprite.center_y = 64 # ===TEST===
-        self.scene.add_sprite('Player', self.test_sprite) # ===TEST===
+        self.scene.add_sprite('Light', self.test_sprite) # ===TEST===
 
         self.player_sprite = PlayerCharecter()
         self.player_sprite.center_x = 400
         self.player_sprite.center_y = 400
         self.scene.add_sprite('Player', self.player_sprite)
 
+        #======SET=UP=ENEMY=TEST====
+        self.enemy_sprite = Enemy()
+        self.enemy_sprite.center_x = 500
+        self.enemy_sprite.center_y = 500
+        self.scene.add_sprite('Enemy', self.enemy_sprite)
+
         #put some box
-        cord_list = [[512, 96], [256, 96], [768, 96]]
+        #cord_list = [[512, 96], [256, 96], [768, 96]]
         #for cord in cord_list:
             #wall = ar.Sprite('images/boxCrate.png', tile_scal)
             #wall.position = cord
@@ -354,9 +395,70 @@ class GameView(ar.View):
             self.scene.add_sprite('Ammo', bullet)
 
         #create physics engine
-        self.physics_engine = ar.PhysicsEngineSimple(
-                self.player_sprite, walls=self.scene_map['Walls']
+        #self.physics_engine = ar.PhysicsEngineSimple(
+        #        self.player_sprite, walls=[self.scene_map['Walls'], self.scene['Enemy']]
+        #        )
+
+        #=====TEST=NEW=ENGINE=====
+        damping = 0.7
+        gravity = (0, 0)
+
+
+        self.physics_engine = ar.PymunkPhysicsEngine(damping=damping,
+                                                     gravity=gravity)
+
+        def wall_hit_handler(sprite_a, sprite_b, arbiter, space, data):
+            bullet_shape = arbiter.shapes[0]
+            bullet_sprite = self.physics_engine.get_sprite_for_shape(bullet_shape)
+            bullet_sprite.remove_from_sprite_lists()
+            print('Wall')
+
+        self.physics_engine.add_collision_handler('bullet', 'wall', post_handler=wall_hit_handler)
+
+        self.physics_engine.add_sprite(
+                self.player_sprite,
+                friction=0.6,
+                moment_of_inertia=PymunkPhysicsEngine.MOMENT_INF,
+                damping=0.01,
+                collision_type='Player',
+                max_velocity=200
                 )
+
+        self.physics_engine.add_sprite_list(
+                self.scene_map['Walls'],
+                friction=0.6,
+                collision_type='wall',
+                body_type=PymunkPhysicsEngine.STATIC
+                )
+
+    def on_mouse_press(self, x, y, button, modifiers):
+
+        bullet = ar.SpriteSolidColor(5, 5, ar.color.RED)
+        self.bullet_list.append(bullet)
+
+        start_x = self.player_sprite.center_x
+        start_y = self.player_sprite.center_y
+        bullet.position = self.player_sprite.position
+
+        ang = math.radians(angle+180)
+        force = [math.cos(ang), math.sin(ang)]
+        size = max(self.player_sprite.width, self.player_sprite.height)/2
+
+        bullet.center_x += size * force[0]
+        bullet.center_y += size * force[1]
+
+        self.physics_engine.add_sprite(bullet,
+                                       mass=0.1,
+                                       damping=1.0,
+                                       friction=0.6,
+                                       collision_type='bullet',
+                                       elasticity=0.9
+                                       )
+
+        force[0] *= BULLET_MOVE_FORCE
+        force[1] *= BULLET_MOVE_FORCE
+
+        self.physics_engine.apply_force(bullet, force)
 
 
     def on_draw(self):
@@ -368,7 +470,9 @@ class GameView(ar.View):
         self.channel0.clear()
 
         #draw our scene
-        self.scene_map.draw()
+        self.scene_map['Walls'].draw()
+        self.scene['Light'].draw()
+        self.scene['Enemy'].draw()
 
         #select the window to draw on
         self.window.use()
@@ -402,6 +506,8 @@ class GameView(ar.View):
 
         self.scene_map.draw()
         self.scene.draw()
+
+        self.bullet_list.draw()
         #run the shader and render to the window
         self.shadertoy.render()
 
@@ -422,7 +528,7 @@ class GameView(ar.View):
                 210, 10,
                 ar.color.WHITE,
                 18)
-
+    '''
     def update_player_speed(self):
 
         #calculate player speed
@@ -432,52 +538,63 @@ class GameView(ar.View):
         #self.test_sprite.change_y = 0 # ===TEST===
 
         if self.w_p and not self.s_p:
-            self.player_sprite.change_y = player_sp
+            force = (0, PLAYER_MOVE_FORCE)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_y = player_sp
             #self.test_sprite.change_y = player_sp # ===TEST===
             #self.mouse_y += player_sp
         elif self.s_p and not self.w_p:
-            self.player_sprite.change_y = -player_sp
+            force = (0, -PLAYER_MOVE_FORCE)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_y = -player_sp
             #self.test_sprite.change_y = -player_sp # ===TEST===
             #self.mouse_y -= player_sp
         if self.a_p and not self.d_p:
-            self.player_sprite.change_x = -player_sp
+            force = (-PLAYER_MOVE_FORCE, 0)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_x = -player_sp
             #self.test_sprite.change_x = -player_sp # ===TEST===
             #self.mouse_x -= player_sp
         elif self.d_p and not self.a_p:
-            self.player_sprite.change_x = player_sp
+            force = (PLAYER_MOVE_FORCE, 0)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_x = player_sp
             #self.test_sprite.change_x = player_sp # ===TEST===
             #self.mouse_x += player_sp
+    '''
+        #self.physics_engine.step()
 
     def on_key_press(self, key, modifiers):
 
         if key == ar.key.W:
             self.w_p = True
-            self.update_player_speed()
+            #self.update_player_speed()
         if key == ar.key.S:
             self.s_p = True
-            self.update_player_speed()
+            #self.update_player_speed()
         if key == ar.key.A:
             self.a_p = True
-            self.update_player_speed()
+            #self.update_player_speed()
         if key == ar.key.D:
             self.d_p = True
-            self.update_player_speed()
+            #self.update_player_speed()
+
 
 
     def on_key_release(self, key, modifiers):
 
         if key == ar.key.W:
             self.w_p = False
-            self.update_player_speed()
+            #self.update_player_speed()
         if key == ar.key.S:
             self.s_p = False
-            self.update_player_speed()
+            #self.update_player_speed()
         if key == ar.key.A:
             self.a_p = False
-            self.update_player_speed()
+            #self.update_player_speed()
         if key == ar.key.D:
             self.d_p = False
-            self.update_player_speed()
+            #self.update_player_speed()
 
     def center_camera_to_player(self):
         screen_center_x = self.player_sprite.center_x - (self.camera.viewport_width / 2)
@@ -487,10 +604,12 @@ class GameView(ar.View):
         #print(self.mouse_x, self.mouse_y, mouse.get_position())
 
         #Don't let camera travel past 0
+        '''
         if screen_center_x < 0:
             screen_center_x = 0
         if screen_center_y < 0:
             screen_center_y = 0
+        '''
 
         player_centered = screen_center_x, screen_center_y
         offset_x, offset_y = screen_center_x, screen_center_y
@@ -532,15 +651,43 @@ class GameView(ar.View):
         #self.mouse_x, self.mouse_y = mouse.get_position()
         #self.mouse_x += self.offset_x
         #self.mouse_y += self.offset_y
-        print(self.test_sprite.center_x, self.test_sprite.center_y)
+        #print(self.test_sprite.center_x, self.test_sprite.center_y)
 
+        #calculate player speed
+        self.player_sprite.change_x = 0
+        self.player_sprite.change_y = 0
+        #self.test_sprite.change_x = 0 # ===TEST===
+        #self.test_sprite.change_y = 0 # ===TEST===
+
+        if self.w_p and not self.s_p:
+            force = (0, PLAYER_MOVE_FORCE)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_y = player_sp
+            #self.test_sprite.change_y = player_sp # ===TEST===
+            #self.mouse_y += player_sp
+        elif self.s_p and not self.w_p:
+            force = (0, -PLAYER_MOVE_FORCE)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_y = -player_sp
+            #self.test_sprite.change_y = -player_sp # ===TEST===
+            #self.mouse_y -= player_sp
+        if self.a_p and not self.d_p:
+            force = (-PLAYER_MOVE_FORCE, 0)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_x = -player_sp
+            #self.test_sprite.change_x = -player_sp # ===TEST===
+            #self.mouse_x -= player_sp
+        elif self.d_p and not self.a_p:
+            force = (PLAYER_MOVE_FORCE, 0)
+            self.physics_engine.apply_force(self.player_sprite, force)
+            #self.player_sprite.change_x = player_sp
+            #self.test_sprite.change_x = player_sp # ===TEST===
+            #self.mouse_x += player_sp
 
 
         # Activate our Camera
         self.camera.use()
 
-        #move player
-        self.physics_engine.update()
 
         #see if we hit any ammo
         ammo_hit_list = ar.check_for_collision_with_list(
@@ -565,7 +712,11 @@ class GameView(ar.View):
         #angle of player
         self.change_angle_player()
 
+        #move player
+        self.physics_engine.step(delta_time)
+
 def main():
+    global start_view
     window = ar.Window(sc_w, sc_h, sc_title)
     start_view = MainMenuView()
     window.show_view(start_view)

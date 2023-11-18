@@ -11,8 +11,9 @@ float terrain(vec2 samplePoint)
 	float sampleStepped = step(0.1, samplePointAlpha);
 	float returnValue = 1.0 - sampleStepped;
 
-	//soften the shadow
-	returnValue = mix(0.99, 1.0, returnValue);
+	//soften the shadow !аномалия! 0.95 стены прозрачные, 0.97 стены черные.
+	// при силе света 500. значение 0.96 подобрано методом научного тыка
+	returnValue = mix(0.96, 1.0, returnValue);
 
 	return returnValue;
 }
